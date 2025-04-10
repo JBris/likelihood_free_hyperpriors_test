@@ -1,0 +1,51 @@
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+import pymc as pm
+import arviz as az
+
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size = 0.8)
+
+distance = lambda e, _, simulated: simulated
+
+with pm.Model() as abc_model:
+    K = pm.DiscreteUniform("K", 15, 30)
+
+    def simulator_model(rng, K, size = None):
+        knn = KNeighborsClassifier(n_neighbors=K.item())
+        knn.fit(X_train, y_train)
+        preds = knn.predict(X_test)
+        acc = accuracy_score(y_test, preds)
+        return [abs(1 - acc)]
+
+    pm.Simulator(
+        "Y_obs",
+        simulator_model,
+        params = [K],
+        distance = distance,
+        sum_stat = "identity",
+        epsilon = 0.1,
+        observed = y_test,
+    )
+
+with abc_model:
+    trace = pm.sample_smc(
+        draws = 1000,
+        chains = 4,
+        cores = 4,
+        compute_convergence_checks = True,
+        return_inferencedata = True,
+        progressbar = True
+    )
+
+    textsize = 7
+    for plot in ["trace"]:
+        az.plot_trace(trace, kind = plot, plot_kwargs = {"textsize": textsize})
+        plt.show()
+
+    df = trace.to_dataframe(include_coords=False, groups="posterior")
+    print(df)
