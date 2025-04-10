@@ -76,7 +76,7 @@ with pm.Model() as abc_model:
 
 with abc_model:
     trace = pm.sample_smc(
-        draws = 100, 
+        draws = 1000, 
         chains = 4,
         cores = 4,
         compute_convergence_checks = True,
