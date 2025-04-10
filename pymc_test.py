@@ -3,6 +3,11 @@ import pandas as pd
 import pymc as pm
 import arviz as az
 import matplotlib.pyplot as plt
+import openturns as ot
+import openturns.viewer as viewer
+from sklearn.gaussian_process import GaussianProcessRegressor
+from SALib.sample import saltelli
+from SALib.analyze import sobol
 
 # Set seed
 np.random.seed(42)
@@ -55,7 +60,8 @@ with pm.Model() as abc_model:
         audience_ids = data.audience_id
         cost = data.cost
         eta = alpha[audience_ids] + beta[audience_ids]*cost
-        clicks = np.random.poisson(lam=np.exp(eta).astype(np.float64))
+        lam = np.exp(eta)
+        clicks = np.random.poisson(lam=abs(eta))
         return clicks
 
     pm.Simulator(
@@ -70,9 +76,9 @@ with pm.Model() as abc_model:
 
 with abc_model:
     trace = pm.sample_smc(
-        draws = 1000, 
-        chains = 2,
-        cores = 1,
+        draws = 100, 
+        chains = 4,
+        cores = 4,
         compute_convergence_checks = True,
         return_inferencedata = True,
         progressbar = True
@@ -84,4 +90,28 @@ with abc_model:
         plt.show()
 
     df = trace.to_dataframe(include_coords=False, groups="posterior")
-    print(df.head(25))
+    X = df[["mu_intercept", "mu_slope", "sigma_intercept", "sigma_slope"]]
+    Y = df["chain"].astype("float")
+    
+    reg = GaussianProcessRegressor()
+    reg.fit(X, Y)
+
+    X_cols = list(X.columns)
+    bounds = [
+        [X[col].min(), X[col].max()]
+        for col in X_cols
+    ]
+
+    problem = {
+        'num_vars': len(X_cols),
+        'names': X_cols,
+        'bounds': bounds
+    }
+    
+    param_values = saltelli.sample(problem, 64, calc_second_order=True)
+    preds = reg.predict(param_values)
+    sobol_indices = sobol.analyze(problem, preds, print_to_console=True)
+    plt.bar(problem['names'], sobol_indices['S1'], yerr=sobol_indices['S1_conf'])
+    plt.title("First-order Sobol Sensitivity Indices")
+    plt.ylabel("S1 index")
+    plt.show()

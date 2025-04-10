@@ -12,6 +12,8 @@ pymc = "^5.22.0"
 pyabc = "^0.12.15"
 gpy = "^1.13.2"
 elfi = {git = "https://git@github.com/elfi-dev/elfi.git", rev = "a331349dd603f78a7ac444226fb3bd08d4e41fc0"}
+openturns = "^1.24"
+salib = "^1.5.1"
 
 [tool.poetry.group.docs.dependencies]
 sphinx-rtd-theme = "^3.0.1"
