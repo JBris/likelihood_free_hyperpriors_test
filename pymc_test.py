@@ -42,6 +42,8 @@ data = pd.DataFrame({
 # Visualize relationships for 6 random audiences
 sample_audiences = np.random.choice(N_AUDIENCES, 6, replace=False)
 
+# Avoid non-centred for ABC
+
 with pm.Model() as abc_model:
     # Hyperpriors for population-level parameters
     mu_intercept = pm.Normal("mu_intercept", mu=0, sigma=2)
